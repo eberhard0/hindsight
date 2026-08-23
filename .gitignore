@@ -1,0 +1,11 @@
+# personal data — never commit
+data/
+seed.csv
+*.db
+*.db-wal
+*.db-shm
+*.csv
+
+# runtime noise
+nohup.out
+__pycache__/

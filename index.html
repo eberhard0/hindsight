@@ -1,0 +1,891 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="theme-color" content="#eef0f3" />
+<title>Since</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg:        #eef0f3;
+    --surface:   #ffffff;
+    --surface-2: #f6f7f9;
+    --ink:       #1b1e23;
+    --ink-soft:  #565c66;
+    --ink-faint: #8a919c;
+    --line:      #e2e5ea;
+    --brass:     #a9762e;
+    --brass-ink: #ffffff;
+    --fresh:     #2f8f7f;  --fresh-bg: #e3f1ee;
+    --soon:      #b5791f;  --soon-bg:  #f7ecd6;
+    --over:      #bd4b3a;  --over-bg:  #f7e3df;
+    --shadow:    0 1px 2px rgba(20,24,31,.06), 0 6px 20px rgba(20,24,31,.06);
+    --mono: ui-monospace, "SF Mono", "Cascadia Mono", "Roboto Mono", Menlo, monospace;
+    --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #14161a; --surface: #1d2026; --surface-2: #23272e;
+      --ink: #eceef1; --ink-soft: #a4abb6; --ink-faint: #6d7480; --line: #2c313a;
+      --brass: #cf9c4f; --brass-ink: #1b1e23;
+      --fresh: #58b7a5; --fresh-bg: #1a2b28;
+      --soon:  #d5a350; --soon-bg:  #2e2716;
+      --over:  #e0705c; --over-bg:  #2f1e1b;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="dark"] {
+      --bg: #14161a; --surface: #1d2026; --surface-2: #23272e;
+      --ink: #eceef1; --ink-soft: #a4abb6; --ink-faint: #6d7480; --line: #2c313a;
+      --brass: #cf9c4f; --brass-ink: #1b1e23;
+      --fresh: #58b7a5; --fresh-bg: #1a2b28;
+      --soon:  #d5a350; --soon-bg:  #2e2716;
+      --over:  #e0705c; --over-bg:  #2f1e1b;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: var(--sans); -webkit-font-smoothing: antialiased; line-height: 1.5;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 26px 18px 90px; }
+
+  header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
+  header h1 { margin: 0; font-size: 28px; letter-spacing: -.02em; font-weight: 700; }
+  header h1 .dot { color: var(--brass); }
+  header p { margin: 1px 0 0; font-size: 13px; color: var(--ink-faint); }
+  .theme-btn {
+    border: 1px solid var(--line); background: var(--surface); color: var(--ink-soft);
+    width: 38px; height: 38px; border-radius: 10px; cursor: pointer; font-size: 15px;
+    display: grid; place-items: center; flex: 0 0 auto; transition: border-color .15s, color .15s;
+  }
+  .theme-btn:hover { border-color: var(--brass); color: var(--brass); }
+
+  .logbar {
+    display: flex; gap: 8px; background: var(--surface); border: 1px solid var(--line);
+    border-radius: 14px; padding: 7px; box-shadow: var(--shadow); margin-bottom: 9px;
+  }
+  .logbar input {
+    flex: 1; min-width: 0; border: 1px solid transparent; background: var(--surface-2);
+    color: var(--ink); border-radius: 10px; padding: 13px 15px; font-size: 16px;
+    font-family: var(--sans); outline: none; transition: border-color .15s;
+  }
+  .logbar input:focus { border-color: var(--brass); }
+  .logbar button {
+    border: none; background: var(--brass); color: var(--brass-ink); font-weight: 600;
+    border-radius: 10px; padding: 13px 20px; font-size: 15px; cursor: pointer;
+    white-space: nowrap; transition: filter .15s;
+  }
+  .logbar button:hover { filter: brightness(1.07); }
+  .subhint { font-size: 12px; color: var(--ink-faint); padding: 0 8px; margin-bottom: 20px; }
+
+  .summary { display: flex; gap: 8px; margin-bottom: 18px; flex-wrap: wrap; }
+  .chip {
+    font-size: 12px; font-weight: 600; padding: 5px 11px; border-radius: 999px;
+    background: var(--surface); border: 1px solid var(--line); color: var(--ink-soft);
+  }
+  .chip.over { background: var(--over-bg); color: var(--over); border-color: transparent; }
+  .chip.soon { background: var(--soon-bg); color: var(--soon); border-color: transparent; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(276px, 1fr)); gap: 13px; align-items: start; }
+  .card {
+    position: relative; background: var(--surface); border: 1px solid var(--line);
+    border-radius: 16px; padding: 17px 17px 15px; box-shadow: var(--shadow);
+    display: flex; flex-direction: column; gap: 12px; overflow: hidden;
+  }
+  .card::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--stripe, transparent); }
+  .card.s-over { --stripe: var(--over); }
+  .card.s-soon { --stripe: var(--soon); }
+  .card.s-fresh { --stripe: var(--fresh); }
+  @keyframes flash { from { box-shadow: 0 0 0 3px var(--brass); } to { box-shadow: var(--shadow); } }
+  .card.justlogged { animation: flash 1.1s ease-out; }
+
+  .card .top { display: flex; align-items: flex-start; gap: 11px; }
+  .card .emoji { font-size: 24px; line-height: 1.1; }
+  .card .titles { flex: 1; min-width: 0; }
+  .card h3 { margin: 0; font-size: 17px; font-weight: 600; letter-spacing: -.01em; word-break: break-word; }
+  .card .last { font-size: 12px; color: var(--ink-faint); margin-top: 2px; }
+  .pill {
+    font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
+    padding: 4px 9px; border-radius: 999px; white-space: nowrap; flex: 0 0 auto;
+  }
+  .pill.s-over { background: var(--over-bg); color: var(--over); }
+  .pill.s-soon { background: var(--soon-bg); color: var(--soon); }
+  .pill.s-fresh { background: var(--fresh-bg); color: var(--fresh); }
+
+  .count { display: flex; align-items: baseline; gap: 7px; }
+  .count .big {
+    font-family: var(--mono); font-size: 44px; font-weight: 600; letter-spacing: -.03em;
+    font-variant-numeric: tabular-nums; line-height: 1;
+  }
+  .count .unit-lbl { font-size: 14px; color: var(--ink-soft); }
+  .count .ago { font-size: 12px; color: var(--ink-faint); margin-left: auto; align-self: flex-end; text-align: right; }
+
+  .notes {
+    font-size: 13px; color: var(--ink-soft); background: var(--surface-2);
+    border-radius: 9px; padding: 9px 11px; white-space: pre-wrap; word-break: break-word;
+  }
+
+  .cadence { display: flex; flex-direction: column; gap: 5px; }
+  .cadence .track { height: 5px; border-radius: 4px; background: var(--surface-2); overflow: hidden; }
+  .cadence .fill { height: 100%; border-radius: 4px; background: var(--stripe, var(--brass)); transition: width .4s ease; }
+  .cadence .meta { font-size: 11px; color: var(--ink-faint); display: flex; justify-content: space-between; gap: 8px; }
+
+  .avg { font-size: 11.5px; color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+
+  .actions { display: flex; gap: 7px; margin-top: auto; flex-wrap: wrap; }
+  .actions button {
+    border: 1px solid var(--line); background: var(--surface-2); color: var(--ink);
+    border-radius: 10px; padding: 9px 12px; font-size: 13px; font-weight: 500;
+    cursor: pointer; font-family: var(--sans);
+    transition: border-color .15s, color .15s, filter .15s;
+  }
+  .actions .again { flex: 1; min-width: 96px; background: var(--ink); color: var(--surface); border-color: var(--ink); font-weight: 600; }
+  .actions .again:hover { filter: brightness(1.18); }
+  .actions .edit:hover, .actions .hist:hover { border-color: var(--brass); color: var(--brass); }
+  .actions .del:hover { border-color: var(--over); color: var(--over); }
+  .actions .hist[aria-expanded="true"] { border-color: var(--brass); color: var(--brass); }
+
+  /* ---- History ---- */
+  .history { border-top: 1px solid var(--line); padding-top: 11px; display: flex; flex-direction: column; gap: 2px; }
+  .hentry {
+    display: flex; align-items: baseline; gap: 8px; padding: 7px 0;
+    border-bottom: 1px solid var(--surface-2);
+  }
+  .hentry:last-of-type { border-bottom: none; }
+  .hentry .when { font-size: 13px; font-variant-numeric: tabular-nums; }
+  .hentry .gap {
+    font-size: 10.5px; font-family: var(--mono); color: var(--ink-faint);
+    background: var(--surface-2); border-radius: 5px; padding: 1px 5px; white-space: nowrap;
+  }
+  .hentry .hnote { flex-basis: 100%; font-size: 12px; color: var(--ink-soft); white-space: pre-wrap; word-break: break-word; margin-top: -2px; }
+  .hentry .hbtns { margin-left: auto; display: flex; gap: 4px; }
+  .hentry .hbtns button {
+    border: none; background: transparent; color: var(--ink-faint); cursor: pointer;
+    font-size: 12px; padding: 2px 5px; border-radius: 6px; font-family: var(--sans);
+  }
+  .hentry .hbtns button:hover { background: var(--surface-2); color: var(--ink); }
+  .hentry .hbtns .hdel:hover { color: var(--over); }
+  .history .addpast {
+    align-self: flex-start; margin-top: 7px; border: 1px dashed var(--line); background: transparent;
+    color: var(--ink-soft); border-radius: 9px; padding: 7px 11px; font-size: 12.5px;
+    cursor: pointer; font-family: var(--sans);
+  }
+  .history .addpast:hover { border-color: var(--brass); color: var(--brass); }
+
+  /* ---- Editors ---- */
+  .editor { display: flex; flex-direction: column; gap: 9px; border-top: 1px solid var(--line); padding-top: 12px; }
+  .editor.inline { border-top: 1px dashed var(--line); margin: 4px 0 8px; }
+  .editor .row { display: flex; gap: 7px; }
+  .editor label {
+    font-size: 10.5px; font-weight: 700; color: var(--ink-faint); text-transform: uppercase;
+    letter-spacing: .05em; display: block; margin-bottom: 4px;
+  }
+  .editor input, .editor select, .editor textarea {
+    width: 100%; border: 1px solid var(--line); background: var(--surface-2); color: var(--ink);
+    border-radius: 9px; padding: 9px 11px; font-size: 14px; font-family: var(--sans);
+    outline: none; transition: border-color .15s;
+  }
+  .editor input:focus, .editor select:focus, .editor textarea:focus { border-color: var(--brass); }
+  .editor textarea { resize: vertical; min-height: 54px; }
+  .editor .f-emoji { flex: 0 0 60px; }
+  .editor .f-emoji input { text-align: center; }
+  .editor .f-grow { flex: 1; min-width: 0; }
+  .editor .remind-note { font-size: 11px; color: var(--ink-faint); margin-top: 4px; }
+  .editor .save {
+    border: none; background: var(--brass); color: var(--brass-ink); font-weight: 600;
+    border-radius: 9px; padding: 10px 16px; font-size: 14px; cursor: pointer; font-family: var(--sans);
+  }
+  .editor .cancel {
+    border: 1px solid var(--line); background: transparent; color: var(--ink-soft);
+    border-radius: 9px; padding: 10px 14px; font-size: 14px; cursor: pointer; font-family: var(--sans);
+  }
+
+  .toast {
+    position: fixed; left: 50%; bottom: 26px; transform: translate(-50%, 14px);
+    background: var(--ink); color: var(--bg); font-size: 13.5px; font-weight: 600;
+    padding: 11px 18px; border-radius: 999px; box-shadow: 0 6px 24px rgba(0,0,0,.28);
+    opacity: 0; pointer-events: none; transition: opacity .2s ease, transform .2s ease; z-index: 50;
+  }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+  .io { display: flex; align-items: center; gap: 8px; margin-top: 26px; flex-wrap: wrap; }
+  .io button {
+    border: 1px solid var(--line); background: var(--surface); color: var(--ink-soft);
+    border-radius: 9px; padding: 8px 13px; font-size: 12.5px; font-weight: 500;
+    cursor: pointer; font-family: var(--sans); transition: border-color .15s, color .15s;
+  }
+  .io button:hover { border-color: var(--brass); color: var(--brass); }
+  .io-note { font-size: 11.5px; color: var(--ink-faint); }
+  #sync { margin-left: auto; }
+  #sync.sync-ok { color: var(--fresh); }
+  #sync.sync-off { color: var(--soon); }
+
+  .empty { grid-column: 1/-1; text-align: center; color: var(--ink-faint); padding: 54px 20px; }
+  .empty .e { font-size: 36px; margin-bottom: 8px; }
+
+  button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+    outline: 2px solid var(--brass); outline-offset: 2px;
+  }
+  @media (prefers-reduced-motion: reduce) { *, *::before { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Since<span class="dot">.</span></h1>
+      <p>The last time you actually did the thing.</p>
+    </div>
+    <button class="theme-btn" id="theme" title="Toggle light / dark" aria-label="Toggle light or dark theme">◐</button>
+  </header>
+
+  <form class="logbar" id="logForm">
+    <input id="fName" placeholder="What did you just do?  e.g. Haircut" autocomplete="off"
+           list="known" aria-label="What did you just do?" required />
+    <datalist id="known"></datalist>
+    <button type="submit">Log it</button>
+  </form>
+  <div class="subhint">Logs at this exact moment. Log the same name again and it joins that thing's history.</div>
+
+  <div class="summary" id="summary"></div>
+  <div class="grid" id="grid"></div>
+
+  <div class="io">
+    <button id="exportBtn" type="button">Export CSV</button>
+    <button id="importBtn" type="button">Import CSV</button>
+    <input id="importFile" type="file" accept=".csv,text/csv" hidden />
+    <span class="io-note">Same format as a Hindsight app export.</span>
+    <span class="io-note" id="sync"></span>
+  </div>
+</div>
+
+<script>
+(function () {
+  var KEY = "since.items.v3";
+  var DAY = 86400000;
+  var items = load();
+  var justLoggedId = null;
+  var openHistory = {};   // id -> true, so panels stay open across re-renders
+
+  var grid = document.getElementById("grid");
+  var summary = document.getElementById("summary");
+  var nameInput = document.getElementById("fName");
+  var known = document.getElementById("known");
+
+  // ---- Quick log: name only, stamped now ----
+  document.getElementById("logForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var name = nameInput.value.trim();
+    if (!name) return;
+
+    var existing = items.filter(function (it) {
+      return it.name.toLowerCase() === name.toLowerCase();
+    })[0];
+
+    if (existing) {
+      addLog(existing, Date.now());      // history panel opens so you see it stack up
+      toast(existing.name + " logged again · " + existing.log.length + " times total");
+    } else {
+      var it = { id: uid(), icon: guessIcon(name), name: name, every: null, dueOn: null, log: [] };
+      addLog(it, Date.now());
+      items.push(it);
+      openHistory[it.id] = false;        // nothing to compare against yet
+    }
+    save(); render();
+    nameInput.value = "";
+    nameInput.focus();
+  });
+
+  document.getElementById("theme").addEventListener("click", function () {
+    var el = document.documentElement;
+    var cur = el.getAttribute("data-theme");
+    var dark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+    el.setAttribute("data-theme", cur === "dark" ? "light" : cur === "light" ? "dark" : (dark ? "light" : "dark"));
+  });
+
+  // ---- Render ----
+  function render() {
+    items.forEach(function (it) {
+      it.log.sort(function (a, b) { return b.ts - a.ts; });   // newest first
+    });
+
+    var view = items.map(statusOf);
+
+    // Most recently logged on top, oldest at the bottom; never-logged last.
+    view.sort(function (a, b) {
+      return (b.last || 0) - (a.last || 0);
+    });
+
+    var over = view.filter(function (v) { return v.status === "over"; }).length;
+    var soon = view.filter(function (v) { return v.status === "soon"; }).length;
+    var chips = "";
+    if (over) chips += '<span class="chip over">' + over + " overdue</span>";
+    if (soon) chips += '<span class="chip soon">' + soon + " due soon</span>";
+    if (items.length) chips += '<span class="chip">' + items.length + " tracked</span>";
+    summary.innerHTML = chips;
+
+    known.innerHTML = "";
+    items.forEach(function (it) {
+      var o = document.createElement("option");
+      o.value = it.name;
+      known.appendChild(o);
+    });
+
+    grid.innerHTML = "";
+    if (!items.length) {
+      grid.innerHTML = '<div class="empty"><div class="e">🕒</div>Nothing logged yet.<br>Type what you just did above.</div>';
+      return;
+    }
+    view.forEach(function (v) { grid.appendChild(cardEl(v)); });
+    justLoggedId = null;
+  }
+
+  function cardEl(v) {
+    var it = v.it, days = v.days;
+    var card = document.createElement("div");
+    card.className = "card s-" + v.status + (it.id === justLoggedId ? " justlogged" : "");
+
+    var latest = it.log[0] || null;
+    var big = days == null ? "—" : String(days);
+    var unit = days == null ? "" : days === 1 ? "day" : "days";
+    var ago = days == null ? "no logs" : days === 0 ? "logged " + timeOf(latest.ts) : "since last time";
+
+    var pill = v.status === "none" ? "" :
+      '<span class="pill s-' + v.status + '">' +
+      ({ over: "overdue", soon: "due soon", fresh: "on track" })[v.status] + "</span>";
+
+    var cadence = "";
+    if (v.status !== "none") {
+      cadence =
+        '<div class="cadence"><div class="track"><div class="fill" style="width:' + v.pct.toFixed(0) + '%"></div></div>' +
+        '<div class="meta"><span>' + v.left + "</span><span>" + v.right + "</span></div></div>";
+    }
+
+    var avg = averageGap(it);
+    var avgLine = avg
+      ? '<div class="avg">' + it.log.length + " logs · averages every " + avg + " days</div>"
+      : (it.log.length > 1 ? '<div class="avg">' + it.log.length + " logs</div>" : "");
+
+    card.innerHTML =
+      '<div class="top"><span class="emoji"></span>' +
+        '<div class="titles"><h3></h3><div class="last"></div></div>' + pill + "</div>" +
+      '<div class="count"><span class="big">' + big + '</span><span class="unit-lbl">' + unit + "</span>" +
+        '<span class="ago">' + ago + "</span></div>" +
+      (latest && latest.note ? '<div class="notes"></div>' : "") +
+      cadence + avgLine +
+      '<div class="actions">' +
+        '<button class="again">Log again</button>' +
+        '<button class="edit">Edit</button>' +
+        '<button class="hist" aria-expanded="false">History (' + it.log.length + ")</button>" +
+        '<button class="del" aria-label="Delete">✕</button>' +
+      "</div>";
+
+    card.querySelector(".emoji").textContent = it.icon || "•";
+    card.querySelector("h3").textContent = it.name;
+    card.querySelector(".last").textContent =
+      (it.cat ? it.cat + " · " : "") + (latest ? fmtFull(latest.ts) : "never logged");
+    if (latest && latest.note) card.querySelector(".notes").textContent = latest.note;
+
+    card.querySelector(".again").addEventListener("click", function () {
+      var now = Date.now();
+      addLog(it, now);
+      toast(it.name + " logged · " + timeOf(now));
+      save(); render();
+    });
+    card.querySelector(".edit").addEventListener("click", function () { openItemEditor(card, it); });
+    var histBtn = card.querySelector(".hist");
+    histBtn.addEventListener("click", function () {
+      openHistory[it.id] = !openHistory[it.id];
+      render();
+    });
+    card.querySelector(".del").addEventListener("click", function () {
+      items = items.filter(function (x) { return x.id !== it.id; });
+      delete openHistory[it.id];
+      save(); render();
+    });
+
+    if (openHistory[it.id]) {
+      histBtn.setAttribute("aria-expanded", "true");
+      card.appendChild(historyEl(it));
+    }
+    return card;
+  }
+
+  // ---- History list ----
+  function historyEl(it) {
+    var box = document.createElement("div");
+    box.className = "history";
+
+    it.log.forEach(function (entry, i) {
+      var row = document.createElement("div");
+      row.className = "hentry";
+      var prev = it.log[i + 1];   // older neighbour
+      var gap = prev ? daysBetween(prev.ts, entry.ts) : null;
+
+      row.innerHTML =
+        '<span class="when"></span>' +
+        (gap != null ? '<span class="gap">+' + gap + "d</span>" : '<span class="gap">first</span>') +
+        '<span class="hbtns"><button class="hedit">Edit</button><button class="hdel" aria-label="Delete this log">✕</button></span>' +
+        (entry.note ? '<span class="hnote"></span>' : "");
+      row.querySelector(".when").textContent = fmtFull(entry.ts);
+      if (entry.note) row.querySelector(".hnote").textContent = entry.note;
+
+      row.querySelector(".hedit").addEventListener("click", function () {
+        openEntryEditor(row, it, entry);
+      });
+      row.querySelector(".hdel").addEventListener("click", function () {
+        it.log = it.log.filter(function (x) { return x.id !== entry.id; });
+        save(); render();
+      });
+      box.appendChild(row);
+    });
+
+    var add = document.createElement("button");
+    add.className = "addpast";
+    add.textContent = "+ Add a past time";
+    add.addEventListener("click", function () {
+      var entry = { id: uid(), ts: Date.now(), note: "" };
+      it.log.push(entry);
+      openEntryEditor(add, it, entry, true);
+      add.style.display = "none";
+    });
+    box.appendChild(add);
+    return box;
+  }
+
+  // ---- Entry editor: date, time, notes ----
+  function openEntryEditor(anchor, it, entry, isNew) {
+    if (anchor.nextSibling && anchor.nextSibling.className === "editor inline") return;
+    var ed = document.createElement("div");
+    ed.className = "editor inline";
+    ed.innerHTML =
+      '<div class="row">' +
+        '<div class="f-grow"><label>Date</label><input class="e-date" type="date" /></div>' +
+        '<div class="f-grow"><label>Time</label><input class="e-time" type="time" /></div>' +
+      "</div>" +
+      '<div><label>Notes</label><textarea class="e-note" placeholder="Where, who, how much…"></textarea></div>' +
+      '<div class="row" style="justify-content:flex-end">' +
+        '<button class="cancel" type="button">Cancel</button>' +
+        '<button class="save" type="button">Save</button>' +
+      "</div>";
+    anchor.after(ed);
+
+    var q = function (s) { return ed.querySelector(s); };
+    q(".e-date").value = isoDate(entry.ts);
+    q(".e-time").value = isoTime(entry.ts);
+    q(".e-note").value = entry.note || "";
+
+    q(".cancel").addEventListener("click", function () {
+      if (isNew) { it.log = it.log.filter(function (x) { return x.id !== entry.id; }); save(); render(); }
+      else ed.remove();
+    });
+    q(".save").addEventListener("click", function () {
+      var d = q(".e-date").value;
+      if (d) entry.ts = atDate(d, q(".e-time").value);
+      entry.note = q(".e-note").value.trim();
+      save(); render();
+    });
+    q(".e-date").focus();
+  }
+
+  // ---- Item editor: icon, name, reminder ----
+  function openItemEditor(card, it) {
+    if (card.querySelector(".editor:not(.inline)")) return;
+    var ed = document.createElement("div");
+    ed.className = "editor";
+    var every = it.every || null;
+    var unitVal = every && every % 30 === 0 ? 30 : every && every % 7 === 0 ? 7 : 1;
+
+    var latest = it.log[0] || null;
+    var mode = it.dueOn ? "date" : it.every ? "every" : "none";
+
+    ed.innerHTML =
+      '<div class="row">' +
+        '<div class="f-emoji"><label>Icon</label><input class="e-icon" maxlength="2" /></div>' +
+        '<div class="f-grow"><label>Name</label><input class="e-name" /></div>' +
+      "</div>" +
+      (latest
+        ? '<div><label>Last logged — fix it if you logged late</label>' +
+            '<div class="row">' +
+              '<div class="f-grow"><input class="e-date" type="date" /></div>' +
+              '<div class="f-grow"><input class="e-time" type="time" /></div>' +
+            "</div>" +
+            '<div style="margin-top:7px"><textarea class="e-note" placeholder="Notes for this one — where, who, how much…"></textarea></div>' +
+          "</div>"
+        : "") +
+      '<div><label>Reminder (optional)</label>' +
+        '<select class="e-mode">' +
+          '<option value="none">No reminder</option>' +
+          '<option value="every">Repeat every…</option>' +
+          '<option value="date">On a specific date</option>' +
+        "</select>" +
+        '<div class="row r-every" style="margin-top:7px">' +
+          '<div style="flex:0 0 84px"><input class="e-every" type="number" min="1" placeholder="45" /></div>' +
+          '<div class="f-grow"><select class="e-unit">' +
+            '<option value="1">days</option><option value="7">weeks</option><option value="30">months</option>' +
+          "</select></div>" +
+        "</div>" +
+        '<div class="r-date" style="margin-top:7px"><input class="e-due" type="date" /></div>' +
+        '<div class="remind-note r-hint"></div>' +
+      "</div>" +
+      '<div class="row" style="justify-content:flex-end">' +
+        '<button class="cancel" type="button">Cancel</button>' +
+        '<button class="save" type="button">Save</button>' +
+      "</div>";
+    card.appendChild(ed);
+
+    var q = function (s) { return ed.querySelector(s); };
+    q(".e-icon").value = it.icon || "";
+    q(".e-name").value = it.name;
+    if (latest) {
+      q(".e-date").value = isoDate(latest.ts);
+      q(".e-time").value = isoTime(latest.ts);
+      q(".e-note").value = latest.note || "";
+    }
+    q(".e-mode").value = mode;
+    if (every) { q(".e-every").value = every / unitVal; q(".e-unit").value = String(unitVal); }
+    if (it.dueOn) q(".e-due").value = isoDate(it.dueOn);
+
+    function syncMode() {
+      var m = q(".e-mode").value;
+      q(".r-every").style.display = m === "every" ? "flex" : "none";
+      q(".r-date").style.display = m === "date" ? "block" : "none";
+      q(".r-hint").textContent =
+        m === "every" ? "Counts forward from each time you log it."
+        : m === "date" ? "A one-off date for the next one — clears itself once you log it."
+        : "Just counts the days, with no nudging.";
+    }
+    q(".e-mode").addEventListener("change", syncMode);
+    syncMode();
+
+    q(".cancel").addEventListener("click", function () { ed.remove(); });
+    q(".save").addEventListener("click", function () {
+      var nm = q(".e-name").value.trim();
+      if (nm) it.name = nm;
+      it.icon = q(".e-icon").value.trim() || it.icon;
+
+      if (latest) {
+        var dv = q(".e-date").value, tv = q(".e-time").value;
+        if (dv) latest.ts = atDate(dv, tv);
+        latest.note = q(".e-note").value.trim();
+      }
+
+      var m = q(".e-mode").value;
+      if (m === "every") {
+        var n = parseInt(q(".e-every").value, 10);
+        it.every = n > 0 ? n * parseInt(q(".e-unit").value, 10) : null;
+        it.dueOn = null;
+      } else if (m === "date") {
+        it.dueOn = q(".e-due").value ? atDate(q(".e-due").value, "09:00") : null;
+        it.every = null;
+      } else {
+        it.every = null; it.dueOn = null;
+      }
+      save(); render();
+    });
+    q(".e-name").focus();
+  }
+
+  // ---- status: no reminder, a repeating interval, or a fixed next date ----
+  function statusOf(it) {
+    var last = it.log.length ? it.log[0].ts : null;
+    var days = last == null ? null : daysBetween(last, Date.now());
+    var v = { it: it, last: last, days: days, status: "none", urgency: 0, pct: 0, left: "", right: "" };
+
+    if (it.dueOn) {
+      var left = dayDiff(Date.now(), it.dueOn);          // + = still to come
+      v.status = left <= 0 ? "over" : left <= 7 ? "soon" : "fresh";
+      v.urgency = -left;
+      var span = last != null ? dayDiff(last, it.dueOn) : 0;
+      v.pct = span > 0 ? Math.min(Math.max(dayDiff(last, Date.now()) / span, 0), 1) * 100 : 100;
+      v.left = "due " + shortDate(it.dueOn);
+      v.right = left > 0 ? left + "d left" : left === 0 ? "due today" : -left + "d over";
+    } else if (it.every && days != null) {
+      var ratio = days / it.every;
+      v.status = ratio >= 1 ? "over" : ratio >= 0.8 ? "soon" : "fresh";
+      v.urgency = ratio;
+      v.pct = Math.min(ratio, 1) * 100;
+      v.left = "every " + prettyEvery(it.every);
+      v.right = ratio > 1 ? (days - it.every) + "d over" : (it.every - days) + "d left";
+    }
+    return v;
+  }
+
+  // Record a log; a one-off date reminder is considered met once the day arrives.
+  function addLog(it, ts) {
+    it.log.push({ id: uid(), ts: ts, note: "" });
+    if (it.dueOn && startOfDay(it.dueOn) <= startOfDay(ts)) it.dueOn = null;
+    justLoggedId = it.id;
+    openHistory[it.id] = true;
+  }
+
+  // ---- helpers ----
+  var toastEl = null, toastTimer = null;
+  function toast(msg) {
+    if (!toastEl) {
+      toastEl = document.createElement("div");
+      toastEl.className = "toast";
+      toastEl.setAttribute("role", "status");
+      document.body.appendChild(toastEl);
+    }
+    toastEl.textContent = msg;
+    toastEl.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { toastEl.classList.remove("show"); }, 2200);
+  }
+
+  function uid() { return "i" + Date.now().toString(36) + Math.floor(Math.random() * 1e6).toString(36); }
+  function startOfDay(ts) { var d = new Date(ts); d.setHours(0, 0, 0, 0); return d.getTime(); }
+  function dayDiff(a, b) { return Math.round((startOfDay(b) - startOfDay(a)) / DAY); }  // signed
+  function daysBetween(a, b) { return Math.max(0, dayDiff(a, b)); }
+  function atDate(dStr, tStr) {
+    var p = dStr.split("-"), t = (tStr || "00:00").split(":");
+    return new Date(+p[0], +p[1] - 1, +p[2], +t[0], +t[1]).getTime();
+  }
+  function shortDate(ts) {
+    return new Date(ts).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  }
+
+  function averageGap(it) {
+    if (!it.log || it.log.length < 2) return null;
+    var total = daysBetween(it.log[it.log.length - 1].ts, it.log[0].ts);
+    var avg = total / (it.log.length - 1);
+    return avg >= 1 ? Math.round(avg) : avg.toFixed(1);
+  }
+
+  function guessIcon(name) {
+    var n = name.toLowerCase();
+    var map = [
+      ["haircut|barber|hair", "✂️"], ["battery", "🔋"], ["freon|^ac |ac clean|ac top", "❄️"],
+      ["genset", "⚡"], ["tennis", "🎾"], ["sheet", "🛏️"], ["service|wax", "🔧"],
+      ["gas|fuel|petrol|fill up", "⛽"], ["oil", "🛢️"],
+      ["dentist|teeth|tooth", "🦷"], ["doctor|checkup|clinic", "🩺"], ["gym|workout|run|exercise", "🏋️"],
+      ["car wash|wash car", "🚿"], ["tire|tyre", "🛞"], ["laundry", "🧺"], ["clean", "🧹"],
+      ["plant|water", "🪴"], ["filter", "🌬️"], ["vitamin|pill|med", "💊"], ["call|phone", "📞"],
+      ["bill|pay|rent", "💳"], ["shave|beard", "🪒"], ["nail", "💅"], ["eye|glasses", "👓"],
+      ["backup", "💾"], ["book|read", "📖"], ["date night", "❤️"], ["shop|grocer", "🛒"]
+    ];
+    for (var i = 0; i < map.length; i++) if (new RegExp(map[i][0]).test(n)) return map[i][1];
+    return "•";
+  }
+  function prettyEvery(d) {
+    if (d % 30 === 0 && d >= 30) { var m = d / 30; return m + " month" + (m > 1 ? "s" : ""); }
+    if (d % 7 === 0 && d >= 7) { var w = d / 7; return w + " week" + (w > 1 ? "s" : ""); }
+    return d + " day" + (d > 1 ? "s" : "");
+  }
+  function fmtFull(ts) {
+    var d = new Date(ts);
+    return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) + " · " + timeOf(ts);
+  }
+  function timeOf(ts) { return new Date(ts).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }); }
+  function isoDate(ts) { var d = new Date(ts); return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
+  function isoTime(ts) { var d = new Date(ts); return pad(d.getHours()) + ":" + pad(d.getMinutes()); }
+  function pad(n) { return n < 10 ? "0" + n : "" + n; }
+
+  // ---- storage (migrates the older single-timestamp format) ----
+  // ---- CSV: same format as a Hindsight app export ----
+  function parseCSV(text) {
+    var rows = [], row = [], field = "", inQ = false;
+    for (var i = 0; i < text.length; i++) {
+      var ch = text[i];
+      if (inQ) {
+        if (ch === '"') { if (text[i + 1] === '"') { field += '"'; i++; } else inQ = false; }
+        else field += ch;
+      } else if (ch === '"') inQ = true;
+      else if (ch === ",") { row.push(field); field = ""; }
+      else if (ch === "\n" || ch === "\r") {
+        if (ch === "\r" && text[i + 1] === "\n") i++;
+        row.push(field); field = "";
+        if (row.length > 1 || row[0] !== "") rows.push(row);
+        row = [];
+      } else field += ch;
+    }
+    row.push(field);
+    if (row.length > 1 || row[0] !== "") rows.push(row);
+    return rows;
+  }
+
+  function parseStamp(s) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?/.exec(s);
+    if (!m) return null;
+    return new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +(m[6] || 0)).getTime();
+  }
+
+  function norm(s) { return s.toLowerCase().replace(/[^a-z0-9]/g, ""); }
+
+  // Merge rows into existing things by name ("Haircut" matches "Hair Cut");
+  // entries within a minute of an existing one are treated as duplicates.
+  function importCSV(text) {
+    var rows = parseCSV(text);
+    if (!rows.length) return { things: 0, logs: 0 };
+    var r0 = /category/i.test(rows[0][0] || "") ? 1 : 0;
+    var newThings = 0, newLogs = 0;
+    for (var r = r0; r < rows.length; r++) {
+      var cat = (rows[r][0] || "").trim(), name = (rows[r][1] || "").trim();
+      var ts = parseStamp((rows[r][2] || "").trim()), note = (rows[r][3] || "").trim();
+      if (!name || ts == null) continue;
+      var it = items.filter(function (x) { return norm(x.name) === norm(name); })[0];
+      if (!it) {
+        it = { id: uid(), icon: guessIcon(name), name: name, cat: cat || null, every: null, dueOn: null, log: [] };
+        items.push(it); newThings++;
+      }
+      if (!it.cat && cat) it.cat = cat;
+      var dup = it.log.some(function (e) { return Math.abs(e.ts - ts) < 60000; });
+      if (!dup) { it.log.push({ id: uid(), ts: ts, note: note }); newLogs++; }
+    }
+    save();
+    return { things: newThings, logs: newLogs };
+  }
+
+  function exportCSV() {
+    var q = function (s) { return '"' + String(s == null ? "" : s).replace(/"/g, '""') + '"'; };
+    var lines = ["Category,Event,Occurrence,Note"];
+    items.forEach(function (it) {
+      it.log.forEach(function (e) {
+        var t = new Date(e.ts);
+        var stamp = isoDate(e.ts) + " " + pad(t.getHours()) + ":" + pad(t.getMinutes()) + ":" + pad(t.getSeconds());
+        lines.push([q(it.cat || ""), q(it.name), q(stamp), q(e.note || "")].join(","));
+      });
+    });
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([lines.join("\n")], { type: "text/csv" }));
+    a.download = "hindsight-export-" + isoDate(Date.now()) + ".csv";
+    a.click();
+  }
+
+  document.getElementById("exportBtn").addEventListener("click", exportCSV);
+  document.getElementById("importBtn").addEventListener("click", function () {
+    document.getElementById("importFile").click();
+  });
+  document.getElementById("importFile").addEventListener("change", function () {
+    var f = this.files[0];
+    if (!f) return;
+    var rd = new FileReader();
+    rd.onload = function () {
+      var res = importCSV(rd.result);
+      toast("Imported " + res.logs + " logs across " + res.things + " new things");
+      render();
+    };
+    rd.readAsText(f);
+    this.value = "";
+  });
+
+  function load() {
+    try {
+      var raw = localStorage.getItem(KEY);
+      if (raw) return normalize(JSON.parse(raw));
+      var old = localStorage.getItem("since.items.v2") || localStorage.getItem("since.items.v1");
+      if (old) {
+        var migrated = JSON.parse(old).map(function (o) {
+          return {
+            id: o.id || uid(), icon: o.icon || "•", name: o.name, every: o.every || null,
+            log: o.last ? [{ id: uid(), ts: o.last, note: o.notes || "" }] : []
+          };
+        });
+        localStorage.setItem(KEY, JSON.stringify(migrated));
+        return migrated;
+      }
+    } catch (e) {}
+    return [];
+  }
+  function normalize(list) {
+    return (list || []).map(function (o) {
+      if (!o.log) o.log = o.last ? [{ id: uid(), ts: o.last, note: o.notes || "" }] : [];
+      if (o.dueOn === undefined) o.dueOn = null;
+      if (o.cat === undefined) o.cat = null;
+      return o;
+    });
+  }
+  function saveLocal() {
+    // keep every history list newest-first on disk, not just on screen
+    items.forEach(function (it) { it.log.sort(function (a, b) { return b.ts - a.ts; }); });
+    try { localStorage.setItem(KEY, JSON.stringify(items)); } catch (e) {}
+  }
+  function save() { saveLocal(); push(); }
+
+  // ---- Sync: the Pi's database is the source of truth; localStorage is the offline cache ----
+  var SYNC_FLAG = "since.synced.v1";     // this browser has completed its first merge with the server
+  var PENDING = "since.pending.v1";      // a push failed; merge instead of replace on next load
+  var canSync = typeof fetch !== "undefined";
+
+  function setSync(state) {
+    var el = document.getElementById("sync");
+    if (!el) return;
+    el.textContent = state === "ok" ? "✓ synced to your Pi"
+      : state === "off" ? "⚠ offline — saved in this browser, will sync when the Pi is reachable"
+      : "syncing…";
+    el.className = "io-note sync-" + state;
+  }
+
+  function push() {
+    if (!canSync) return;
+    fetch("/api/items", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(items)
+    }).then(function (r) {
+      if (!r.ok) throw 0;
+      try { localStorage.removeItem(PENDING); } catch (e) {}
+      setSync("ok");
+    }).catch(function () {
+      try { localStorage.setItem(PENDING, "1"); } catch (e) {}
+      setSync("off");
+    });
+  }
+
+  // Union-merge: match things by id, then by normalized name; drop log entries
+  // that already exist by id or land within a minute of an existing one.
+  function mergeStates(server, local) {
+    var out = normalize(server).slice();
+    local.forEach(function (li) {
+      var si = out.filter(function (x) {
+        return x.id === li.id || norm(x.name) === norm(li.name);
+      })[0];
+      if (!si) { out.push(li); return; }
+      si.name = li.name || si.name;
+      si.icon = li.icon || si.icon;
+      si.cat = li.cat || si.cat;
+      if (li.every != null) si.every = li.every;
+      if (li.dueOn != null) si.dueOn = li.dueOn;
+      (li.log || []).forEach(function (e) {
+        var dup = si.log.some(function (x) {
+          return x.id === e.id || Math.abs(x.ts - e.ts) < 60000;
+        });
+        if (!dup) si.log.push(e);
+      });
+    });
+    return out;
+  }
+
+  if (canSync) {
+    setSync("load");
+    fetch("/api/items")
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (data) {
+        if (!data || !data.items) { setSync("off"); return; }
+        var firstSync = !localStorage.getItem(SYNC_FLAG);
+        var pending = !!localStorage.getItem(PENDING);
+        if ((firstSync || pending) && items.length) {
+          items = mergeStates(data.items, items);   // never lose local-only logs
+        } else {
+          items = normalize(data.items);            // server is truth on a normal load
+        }
+        try { localStorage.setItem(SYNC_FLAG, "1"); } catch (e) {}
+        saveLocal();
+        if (firstSync || pending) push(); else setSync("ok");
+        render();
+      })
+      .catch(function () { setSync("off"); });
+  }
+
+  render();
+  nameInput.focus();
+})();
+</script>
+
+</body>
+</html>
