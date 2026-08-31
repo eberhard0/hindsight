@@ -805,11 +805,13 @@
     items.forEach(function (it) { it.log.sort(function (a, b) { return b.ts - a.ts; }); });
     try { localStorage.setItem(KEY, JSON.stringify(items)); } catch (e) {}
   }
-  function save() { saveLocal(); push(); }
+  function save() { saveLocal(); push(); syncNotifications(); }
 
   // ---- Sync: the Pi's database is the source of truth; localStorage is the offline cache ----
   var SYNC_FLAG = "since.synced.v1";     // this browser has completed its first merge with the server
   var PENDING = "since.pending.v1";      // a push failed; merge instead of replace on next load
+  var API = (typeof window !== "undefined" && window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform())
+    ? "https://hindsight.iameberhard.com" : "";
   var canSync = typeof fetch !== "undefined";
 
   function setSync(state) {
@@ -823,7 +825,7 @@
 
   function push() {
     if (!canSync) return;
-    fetch("/api/items", {
+    fetch(API + "/api/items", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(items)
@@ -863,7 +865,7 @@
 
   if (canSync) {
     setSync("load");
-    fetch("/api/items")
+    fetch(API + "/api/items")
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (data) {
         if (!data || !data.items) { setSync("off"); return; }
@@ -878,9 +880,54 @@
         saveLocal();
         if (firstSync || pending) push(); else setSync("ok");
         render();
+        syncNotifications();
       })
       .catch(function () { setSync("off"); });
   }
+
+  // ---- Native reminder notifications (active only inside the Capacitor app) ----
+  var LN = (typeof window !== "undefined" && window.Capacitor && window.Capacitor.Plugins)
+    ? window.Capacitor.Plugins.LocalNotifications : null;
+  if (LN) LN.requestPermissions().catch(function () {});
+
+  function notifId(id) {
+    var h = 0;
+    for (var i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) | 0;
+    return (Math.abs(h) % 2147483646) + 1;
+  }
+  function nextDue(it) {
+    if (it.dueOn) return it.dueOn;
+    var last = it.log.length ? it.log[0].ts : null;
+    if (it.every && last != null) {
+      var t = new Date(startOfDay(last) + it.every * DAY);
+      t.setHours(9, 0, 0, 0);
+      return t.getTime();
+    }
+    return null;
+  }
+  function syncNotifications() {
+    if (!LN) return;
+    LN.getPending().then(function (res) {
+      var pend = (res && res.notifications) || [];
+      return pend.length ? LN.cancel({ notifications: pend.map(function (n) { return { id: n.id }; }) }) : null;
+    }).then(function () {
+      var list = [];
+      items.forEach(function (it) {
+        var at = nextDue(it);
+        if (at && at > Date.now()) {
+          var last = it.log.length ? it.log[0].ts : null;
+          list.push({
+            id: notifId(it.id),
+            title: (it.icon && it.icon !== "\u2022" ? it.icon + " " : "") + it.name,
+            body: last != null ? "Due today \u2014 last done " + daysBetween(last, at) + " days ago" : "Due today",
+            schedule: { at: new Date(at) }
+          });
+        }
+      });
+      if (list.length) return LN.schedule({ notifications: list });
+    }).catch(function () {});
+  }
+  if (LN) syncNotifications();
 
   render();
   nameInput.focus();

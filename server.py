@@ -21,6 +21,8 @@ DB_PATH = os.environ.get("HINDSIGHT_DB", os.path.join(ROOT, "data", "hindsight.d
 PORT = int(os.environ.get("HINDSIGHT_PORT", "8095"))
 BIND = os.environ.get("HINDSIGHT_BIND", "127.0.0.1")
 MAX_BODY = 4 * 1024 * 1024
+# Origins of the Capacitor Android/iOS WebView; the web app itself is same-origin.
+CORS_ORIGINS = {"https://localhost", "capacitor://localhost", "http://localhost"}
 
 ICON_MAP = [
     (r"haircut|barber|hair", "✂️"), (r"battery", "\U0001f50b"),
@@ -172,14 +174,34 @@ class Handler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kw):
         super().__init__(*args, directory=ROOT, **kw)
 
+    def _cors(self):
+        origin = self.headers.get("Origin", "")
+        if origin in CORS_ORIGINS:
+            self.send_header("Access-Control-Allow-Origin", origin)
+            self.send_header("Vary", "Origin")
+
     def _json(self, code, payload):
         body = json.dumps(payload).encode("utf-8")
         self.send_response(code)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
+        self._cors()
         self.end_headers()
         self.wfile.write(body)
+
+    def do_OPTIONS(self):
+        if self.path.split("?")[0] != "/api/items":
+            return self.send_error(404)
+        self.send_response(204)
+        origin = self.headers.get("Origin", "")
+        if origin in CORS_ORIGINS:
+            self.send_header("Access-Control-Allow-Origin", origin)
+            self.send_header("Access-Control-Allow-Methods", "GET, PUT, OPTIONS")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type")
+            self.send_header("Access-Control-Max-Age", "86400")
+            self.send_header("Vary", "Origin")
+        self.end_headers()
 
     def do_GET(self):
         path = self.path.split("?")[0]

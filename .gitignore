@@ -9,3 +9,10 @@ seed.csv
 # runtime noise
 nohup.out
 __pycache__/
+
+# node / capacitor
+node_modules/
+app/www/index.html
+app/android/app/build/
+app/android/.gradle/
+tests/package-lock.json
