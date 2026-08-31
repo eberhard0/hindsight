@@ -16,3 +16,4 @@ app/www/index.html
 app/android/app/build/
 app/android/.gradle/
 tests/package-lock.json
+backups/
