@@ -7,11 +7,12 @@ let fails = 0;
 const check = (l, c, x = "") => { console.log((c ? "  PASS  " : "  FAIL  ") + l + (x ? "  → " + x : "")); if (!c) fails++; };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-function boot(items, { native = true } = {}) {
+function boot(items, { native = true, server = "" } = {}) {
   const calls = { perm: 0, scheduled: [], cancelled: [], fetches: [] };
   const dom = new JSDOM(html, { runScripts: "dangerously", url: "https://localhost/", pretendToBeVisual: true, beforeParse(w) {
     w.localStorage.setItem(KEY, JSON.stringify(items));
     w.localStorage.setItem("since.synced.v1", "1");
+    if (server) w.localStorage.setItem("since.server.v1", server);
     w.fetch = (url, opts) => {
       calls.fetches.push({ url: String(url), method: (opts && opts.method) || "GET" });
       return Promise.resolve({ ok: true, json: () => Promise.resolve({ items: items }) });
@@ -50,13 +51,26 @@ const items = [
 ];
 
 (async () => {
-  console.log("--- A. Native app uses the remote API ---");
+  console.log("--- A. Native app is local-only until a server is configured ---");
   let { dom, calls } = boot(items);
   await sleep(250);
-  check("fetches go to hindsight.iameberhard.com",
-    calls.fetches.length > 0 && calls.fetches.every((f) => f.url.startsWith("https://hindsight.iameberhard.com/api/items")),
-    JSON.stringify(calls.fetches.map((f) => f.url).slice(0, 2)));
+  check("no network calls without a server", calls.fetches.length === 0, JSON.stringify(calls.fetches.slice(0, 2)));
+  check("sync note says on-device", /this device only/.test(dom.window.document.getElementById("sync").textContent),
+    dom.window.document.getElementById("sync").textContent);
+  check("sync-server button shown", !dom.window.document.getElementById("serverBtn").hidden);
+  check("page renders normally", dom.window.document.querySelectorAll(".card").length === 4);
   check("notification permission requested", calls.perm >= 1);
+  dom.window.document.getElementById("serverBtn").dispatchEvent(new dom.window.Event("click", { bubbles: true }));
+  check("clicking it reveals the URL form", !dom.window.document.getElementById("serverForm").hidden);
+
+  console.log("--- A2. With the user's own server set, it syncs there ---");
+  ({ dom, calls } = boot(items, { server: "https://hindsight.example.com/" }));
+  await sleep(250);
+  check("fetches go to the configured server (trailing slash trimmed)",
+    calls.fetches.length > 0 && calls.fetches.every((f) => f.url.startsWith("https://hindsight.example.com/api/items")),
+    JSON.stringify(calls.fetches.map((f) => f.url).slice(0, 2)));
+  check("sync note reports success", /synced/.test(dom.window.document.getElementById("sync").textContent),
+    dom.window.document.getElementById("sync").textContent);
 
   console.log("--- B. Scheduling: future reminders only ---");
   check("pending notifications cleared first",
@@ -97,6 +111,7 @@ const items = [
   check("fetches stay relative", calls.fetches.length > 0 && calls.fetches.every((f) => f.url === "/api/items"),
     JSON.stringify(calls.fetches.map((f) => f.url).slice(0, 2)));
   check("no notification calls", calls.perm === 0 && calls.scheduled.length === 0);
+  check("sync-server button stays hidden", dom.window.document.getElementById("serverBtn").hidden);
   check("page renders normally", dom.window.document.querySelectorAll(".card").length === 4);
 
   console.log("\n" + (fails === 0 ? "ALL CHECKS PASSED" : fails + " CHECK(S) FAILED"));

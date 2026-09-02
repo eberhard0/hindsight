@@ -59,6 +59,14 @@ Item shape:
 
 `every` (days) and `dueOn` (epoch ms) are the two mutually exclusive reminder modes; both `null` means just count days.
 
+## Android app
+
+`app/` wraps `index.html` in a Capacitor shell (`com.iameberhard.hindsight`) with native reminder notifications. In the app, data is **local-only by default**; tap *Sync server* and enter the address of your own `server.py` to sync with it.
+
+Builds run on GitHub Actions (`.github/workflows/android.yml`): every push builds an unsigned test APK, and pushing a tag like `v1.0.0` builds a signed `.aab` + `.apk` and attaches them to a GitHub Release. Signing expects four repository secrets — `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_PASSWORD`, `KEY_ALIAS` — holding your upload key. `store/listing.md` has the Play Console copy and checklist; `store/make-graphics.py` regenerates the launcher icons and store graphics.
+
+To build locally instead: `cd app && npm ci && mkdir -p www && cp ../index.html www/ && npx cap sync android && cd android && ./gradlew assembleDebug`.
+
 ## Caveats
 
 - **No authentication.** Anyone who can reach the server can read and write the data. Run it on localhost, behind a VPN/tunnel with access control, or add auth before exposing it.
