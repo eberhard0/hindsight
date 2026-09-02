@@ -222,6 +222,11 @@
   #sync { margin-left: auto; }
   #sync.sync-ok { color: var(--fresh); }
   #sync.sync-off { color: var(--soon); }
+  .server { display: flex; gap: 6px; width: 100%; align-items: center; }
+  .server input {
+    flex: 1; min-width: 0; border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+    border-radius: 9px; padding: 8px 11px; font-size: 12.5px; font-family: var(--sans);
+  }
 
   .empty { grid-column: 1/-1; text-align: center; color: var(--ink-faint); padding: 54px 20px; }
   .empty .e { font-size: 36px; margin-bottom: 8px; }
@@ -259,7 +264,14 @@
     <button id="importBtn" type="button">Import CSV</button>
     <input id="importFile" type="file" accept=".csv,text/csv" hidden />
     <span class="io-note">Same format as a Hindsight app export.</span>
+    <button id="serverBtn" type="button" hidden>Sync server</button>
     <span class="io-note" id="sync"></span>
+    <form class="server" id="serverForm" hidden>
+      <input id="serverUrl" type="url" placeholder="https://your-hindsight-server" autocomplete="off"
+             aria-label="Sync server URL" />
+      <button type="submit">Save</button>
+      <button type="button" id="serverOff">Turn off</button>
+    </form>
   </div>
 </div>
 
@@ -807,20 +819,52 @@
   }
   function save() { saveLocal(); push(); syncNotifications(); }
 
-  // ---- Sync: the Pi's database is the source of truth; localStorage is the offline cache ----
+  // ---- Sync: a Hindsight server is the source of truth; localStorage is the offline cache ----
+  // In a browser the page syncs with the server that served it. The native app has no server
+  // by default — data stays on the device — until the user enters their own under "Sync server".
   var SYNC_FLAG = "since.synced.v1";     // this browser has completed its first merge with the server
   var PENDING = "since.pending.v1";      // a push failed; merge instead of replace on next load
-  var API = (typeof window !== "undefined" && window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform())
-    ? "https://hindsight.iameberhard.com" : "";
-  var canSync = typeof fetch !== "undefined";
+  var SERVER_KEY = "since.server.v1";    // native app only: base URL of the user's server ("" = local only)
+  var isNative = !!(typeof window !== "undefined" && window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  function serverUrl() {
+    try { return (localStorage.getItem(SERVER_KEY) || "").replace(/\/+$/, ""); } catch (e) { return ""; }
+  }
+  var API = isNative ? serverUrl() : "";
+  var canSync = typeof fetch !== "undefined" && (!isNative || !!API);
 
   function setSync(state) {
     var el = document.getElementById("sync");
     if (!el) return;
-    el.textContent = state === "ok" ? "✓ synced to your Pi"
-      : state === "off" ? "⚠ offline — saved in this browser, will sync when the Pi is reachable"
+    el.textContent = state === "ok" ? "✓ synced to your server"
+      : state === "off" ? "⚠ offline — saved on this device, will sync when the server is reachable"
+      : state === "local" ? "Stored on this device only"
       : "syncing…";
     el.className = "io-note sync-" + state;
+  }
+
+  if (isNative) {
+    var serverBtn = document.getElementById("serverBtn");
+    var serverForm = document.getElementById("serverForm");
+    var serverInput = document.getElementById("serverUrl");
+    serverBtn.hidden = false;
+    if (!API) setSync("local");
+    serverBtn.addEventListener("click", function () {
+      serverForm.hidden = !serverForm.hidden;
+      serverInput.value = API;
+      if (!serverForm.hidden) serverInput.focus();
+    });
+    serverForm.addEventListener("submit", function (e) {
+      e.preventDefault();
+      var v = serverInput.value.trim().replace(/\/+$/, "");
+      if (!/^https?:\/\/\S+$/.test(v)) { toast("Enter a full URL, e.g. https://hindsight.example.com"); return; }
+      // Forget the "already merged" flag so first contact with the new server merges instead of replacing.
+      try { localStorage.setItem(SERVER_KEY, v); localStorage.removeItem(SYNC_FLAG); } catch (err) {}
+      location.reload();
+    });
+    document.getElementById("serverOff").addEventListener("click", function () {
+      try { localStorage.removeItem(SERVER_KEY); localStorage.removeItem(SYNC_FLAG); localStorage.removeItem(PENDING); } catch (err) {}
+      location.reload();
+    });
   }
 
   function push() {
