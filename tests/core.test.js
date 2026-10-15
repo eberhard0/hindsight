@@ -94,6 +94,52 @@ check("3 rows, gaps +40d/+42d/first",
   rows[1].querySelector(".gap").textContent === "+42d" && rows[2].querySelector(".gap").textContent === "first");
 check("average shown", /3 logs · averages every 41 days/.test(dom.window.document.querySelector(".avg").textContent));
 
+console.log("--- 9. Trash: delete is recoverable ---");
+dom = boot([
+  { id: "h", icon: "✂️", name: "Haircut", every: null, dueOn: null, cat: null, deleted: null,
+    log: [{ id: "1", ts: Date.now() - 3 * d, note: "" }] },
+  { id: "g", icon: "⛽", name: "Gas", every: null, dueOn: null, cat: null, deleted: null,
+    log: [{ id: "2", ts: Date.now() - 1 * d, note: "" }] },
+]);
+const D9 = () => dom.window.document;
+const cardNamed = (n) => [...D9().querySelectorAll(".card")].find((c) => c.querySelector("h3").textContent === n);
+check("delete button is a trash can", cardNamed("Haircut").querySelector(".del").textContent === "\uD83D\uDDD1");
+click(dom, cardNamed("Haircut").querySelector(".del"));
+s = stored(dom);
+check("tombstoned, not erased", s.length === 2 && !!s.find((i) => i.name === "Haircut").deleted);
+check("card hidden from grid", !cardNamed("Haircut"));
+check("chip counts only live things", /1 tracked/.test(D9().querySelector(".summary").textContent));
+check("undo toast offered", /moved to trash/.test(D9().querySelector(".toast").textContent) && !!D9().querySelector(".toast-undo"));
+click(dom, D9().querySelector(".toast-undo"));
+check("undo brings it back", !!cardNamed("Haircut") && stored(dom).find((i) => i.name === "Haircut").deleted == null);
+
+console.log("--- 10. Trash panel: restore and delete-forever ---");
+click(dom, cardNamed("Haircut").querySelector(".del"));
+let tb = D9().getElementById("trashBtn");
+check("trash button appears with count", !tb.hidden && /Trash \(1\)/.test(tb.textContent));
+click(dom, tb);
+check("panel lists the item with log count", /Haircut/.test(D9().getElementById("trashList").textContent) && /1 logs/.test(D9().getElementById("trashList").textContent));
+click(dom, D9().querySelector(".t-restore"));
+check("restore from panel works", !!cardNamed("Haircut") && stored(dom).every((i) => !i.deleted));
+check("empty trash hides button", D9().getElementById("trashBtn").hidden);
+// delete forever needs two clicks
+click(dom, cardNamed("Gas").querySelector(".del"));
+click(dom, D9().getElementById("trashBtn"));
+let kill = D9().querySelector(".t-kill");
+click(dom, kill);
+check("first click only arms", stored(dom).length === 2 && /again/.test(D9().querySelector(".t-kill").textContent));
+click(dom, D9().querySelector(".t-kill"));
+check("second click erases for real", stored(dom).length === 1 && !stored(dom).find((i) => i.name === "Gas"));
+
+console.log("--- 11. Typing a trashed name revives it ---");
+dom = boot([{ id: "h", icon: "✂️", name: "Haircut", every: null, dueOn: null, cat: null, deleted: Date.now(),
+  log: [{ id: "1", ts: Date.now() - 9 * d, note: "" }] }]);
+check("starts hidden", dom.window.document.querySelectorAll(".card").length === 0);
+submit(dom, "haircut");
+s = stored(dom);
+check("revived with history intact + new log", s.length === 1 && s[0].deleted == null && s[0].log.length === 2);
+check("toast says restored", /restored from trash/.test(dom.window.document.querySelector(".toast").textContent));
+
 console.log("--- 8. CSV import merge + dedupe, export round-trip ---");
 dom = boot([{ id: "h", icon: "✂️", name: "Haircut", every: null, dueOn: null, cat: null,
   log: [{ id: "a", ts: new Date(2026, 6, 1, 10, 0, 0).getTime(), note: "" }] }]);

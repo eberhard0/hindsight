@@ -66,7 +66,8 @@ def init_db():
           icon  TEXT,
           cat   TEXT,
           every INTEGER,
-          dueOn INTEGER
+          dueOn INTEGER,
+          deleted INTEGER
         );
         CREATE TABLE IF NOT EXISTS logs(
           id       TEXT PRIMARY KEY,
@@ -78,6 +79,11 @@ def init_db():
         """
     )
     conn.commit()
+    # migration for databases created before the trash feature
+    cols = [r[1] for r in conn.execute("PRAGMA table_info(things)")]
+    if "deleted" not in cols:
+        conn.execute("ALTER TABLE things ADD COLUMN deleted INTEGER")
+        conn.commit()
     empty = conn.execute("SELECT COUNT(*) FROM things").fetchone()[0] == 0
     seed = os.path.join(ROOT, "seed.csv")
     if empty and os.path.exists(seed):
@@ -129,9 +135,9 @@ def write_items(conn, items):
         conn.execute("DELETE FROM things")
         for it in items:
             conn.execute(
-                "INSERT INTO things(id,name,icon,cat,every,dueOn) VALUES(?,?,?,?,?,?)",
+                "INSERT INTO things(id,name,icon,cat,every,dueOn,deleted) VALUES(?,?,?,?,?,?,?)",
                 (str(it["id"]), str(it["name"]), it.get("icon"), it.get("cat"),
-                 it.get("every"), it.get("dueOn")),
+                 it.get("every"), it.get("dueOn"), it.get("deleted")),
             )
             for e in it.get("log", []):
                 conn.execute(
@@ -142,8 +148,8 @@ def write_items(conn, items):
 
 def read_items(conn):
     items = []
-    for tid, name, icon, cat, every, due in conn.execute(
-        "SELECT id,name,icon,cat,every,dueOn FROM things ORDER BY name"
+    for tid, name, icon, cat, every, due, deleted in conn.execute(
+        "SELECT id,name,icon,cat,every,dueOn,deleted FROM things ORDER BY name"
     ):
         log = [
             {"id": lid, "ts": ts, "note": note}
@@ -152,7 +158,7 @@ def read_items(conn):
             )
         ]
         items.append({"id": tid, "name": name, "icon": icon, "cat": cat,
-                      "every": every, "dueOn": due, "log": log})
+                      "every": every, "dueOn": due, "deleted": deleted, "log": log})
     return items
 
 

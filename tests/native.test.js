@@ -48,6 +48,9 @@ const items = [
   // no reminder -> nothing
   { id: "none", icon: "•", name: "Plain", every: null, dueOn: null, cat: null,
     log: [{ id: "e", ts: now - 3 * d, note: "" }] },
+  // trashed, with a reminder that would otherwise fire -> must be ignored everywhere
+  { id: "dead", icon: "✂️", name: "Trashed", every: 30, dueOn: null, cat: null, deleted: now,
+    log: [{ id: "z", ts: now - 1 * d, note: "" }] },
 ];
 
 (async () => {
@@ -93,6 +96,7 @@ const items = [
       haircut.schedule.at.getTime() === expect, haircut.schedule.at.toISOString());
     check("ids are positive ints", last.notifications.every((n) => Number.isInteger(n.id) && n.id > 0));
     check("body mentions cadence", /last done \d+ days ago/.test(haircut.body), haircut.body);
+    check("trashed thing never scheduled", !last.notifications.some((n) => /Trashed/.test(n.title)));
   }
 
   console.log("--- C. Logging reschedules ---");
@@ -112,7 +116,7 @@ const items = [
     JSON.stringify(calls.fetches.map((f) => f.url).slice(0, 2)));
   check("no notification calls", calls.perm === 0 && calls.scheduled.length === 0);
   check("sync-server button stays hidden", dom.window.document.getElementById("serverBtn").hidden);
-  check("page renders normally", dom.window.document.querySelectorAll(".card").length === 4);
+  check("page renders normally, trashed thing hidden", dom.window.document.querySelectorAll(".card").length === 4);
 
   console.log("\n" + (fails === 0 ? "ALL CHECKS PASSED" : fails + " CHECK(S) FAILED"));
   process.exit(fails ? 1 : 0);

@@ -228,6 +228,32 @@
     border-radius: 9px; padding: 8px 11px; font-size: 12.5px; font-family: var(--sans);
   }
 
+  .toast.has-action { pointer-events: auto; }
+  .toast-undo {
+    margin-left: 12px; border: none; background: var(--brass); color: var(--brass-ink);
+    border-radius: 999px; padding: 5px 12px; font-size: 12.5px; font-weight: 700;
+    cursor: pointer; font-family: var(--sans);
+  }
+  .trash {
+    margin-top: 18px; background: var(--surface); border: 1px dashed var(--line);
+    border-radius: 14px; padding: 13px 16px;
+  }
+  .trash-head { font-size: 12px; color: var(--ink-faint); margin-bottom: 6px; }
+  .trash-row {
+    display: flex; align-items: center; gap: 10px; padding: 8px 0;
+    border-bottom: 1px solid var(--surface-2); flex-wrap: wrap;
+  }
+  .trash-row:last-child { border-bottom: none; }
+  .t-name { font-weight: 600; font-size: 14px; }
+  .t-meta { font-size: 12px; color: var(--ink-faint); flex: 1; min-width: 120px; }
+  .trash-row button {
+    border: 1px solid var(--line); background: var(--surface-2); color: var(--ink);
+    border-radius: 8px; padding: 6px 11px; font-size: 12.5px; cursor: pointer; font-family: var(--sans);
+  }
+  .t-restore:hover { border-color: var(--fresh); color: var(--fresh); }
+  .t-kill:hover, .t-kill.armed { border-color: var(--over); color: var(--over); }
+  [hidden] { display: none !important; }
+
   .empty { grid-column: 1/-1; text-align: center; color: var(--ink-faint); padding: 54px 20px; }
   .empty .e { font-size: 36px; margin-bottom: 8px; }
 
@@ -259,9 +285,15 @@
   <div class="summary" id="summary"></div>
   <div class="grid" id="grid"></div>
 
+  <div class="trash" id="trash" hidden>
+    <div class="trash-head">Trash — things you deleted. Logs are kept; restore anytime.</div>
+    <div id="trashList"></div>
+  </div>
+
   <div class="io">
     <button id="exportBtn" type="button">Export CSV</button>
     <button id="importBtn" type="button">Import CSV</button>
+    <button id="trashBtn" type="button" hidden></button>
     <input id="importFile" type="file" accept=".csv,text/csv" hidden />
     <span class="io-note">Same format as a Hindsight app export.</span>
     <button id="serverBtn" type="button" hidden>Sync server</button>
@@ -299,8 +331,12 @@
     })[0];
 
     if (existing) {
+      var revived = !!existing.deleted;
+      existing.deleted = null;
       addLog(existing, Date.now());      // history panel opens so you see it stack up
-      toast(existing.name + " logged again · " + existing.log.length + " times total");
+      toast(existing.name + (revived
+        ? " restored from trash · logged"
+        : " logged again · " + existing.log.length + " times total"));
     } else {
       var it = { id: uid(), icon: guessIcon(name), name: name, every: null, dueOn: null, log: [] };
       addLog(it, Date.now());
@@ -325,7 +361,8 @@
       it.log.sort(function (a, b) { return b.ts - a.ts; });   // newest first
     });
 
-    var view = items.map(statusOf);
+    var live = items.filter(function (it) { return !it.deleted; });
+    var view = live.map(statusOf);
 
     // Most recently logged on top, oldest at the bottom; never-logged last.
     view.sort(function (a, b) {
@@ -337,18 +374,19 @@
     var chips = "";
     if (over) chips += '<span class="chip over">' + over + " overdue</span>";
     if (soon) chips += '<span class="chip soon">' + soon + " due soon</span>";
-    if (items.length) chips += '<span class="chip">' + items.length + " tracked</span>";
+    if (live.length) chips += '<span class="chip">' + live.length + " tracked</span>";
     summary.innerHTML = chips;
 
     known.innerHTML = "";
-    items.forEach(function (it) {
+    renderTrash();
+    live.forEach(function (it) {
       var o = document.createElement("option");
       o.value = it.name;
       known.appendChild(o);
     });
 
     grid.innerHTML = "";
-    if (!items.length) {
+    if (!live.length) {
       grid.innerHTML = '<div class="empty"><div class="e">🕒</div>Nothing logged yet.<br>Type what you just did above.</div>';
       return;
     }
@@ -393,7 +431,7 @@
         '<button class="again">Log again</button>' +
         '<button class="edit">Edit</button>' +
         '<button class="hist" aria-expanded="false">History (' + it.log.length + ")</button>" +
-        '<button class="del" aria-label="Delete">✕</button>' +
+        '<button class="del" aria-label="Move to trash" title="Move to trash">\uD83D\uDDD1</button>' +
       "</div>";
 
     card.querySelector(".emoji").textContent = it.icon || "•";
@@ -415,9 +453,12 @@
       render();
     });
     card.querySelector(".del").addEventListener("click", function () {
-      items = items.filter(function (x) { return x.id !== it.id; });
+      it.deleted = Date.now();
       delete openHistory[it.id];
       save(); render();
+      toast(it.name + " moved to trash", { label: "Undo", fn: function () {
+        it.deleted = null; save(); render();
+      }});
     });
 
     if (openHistory[it.id]) {
@@ -637,7 +678,7 @@
 
   // ---- helpers ----
   var toastEl = null, toastTimer = null;
-  function toast(msg) {
+  function toast(msg, action) {
     if (!toastEl) {
       toastEl = document.createElement("div");
       toastEl.className = "toast";
@@ -645,9 +686,20 @@
       document.body.appendChild(toastEl);
     }
     toastEl.textContent = msg;
+    toastEl.classList.toggle("has-action", !!action);
+    if (action) {
+      var ub = document.createElement("button");
+      ub.className = "toast-undo";
+      ub.textContent = action.label;
+      ub.addEventListener("click", function () {
+        toastEl.classList.remove("show");
+        action.fn();
+      });
+      toastEl.appendChild(ub);
+    }
     toastEl.classList.add("show");
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(function () { toastEl.classList.remove("show"); }, 2200);
+    toastTimer = setTimeout(function () { toastEl.classList.remove("show"); }, action ? 8000 : 2200);
   }
 
   function uid() { return "i" + Date.now().toString(36) + Math.floor(Math.random() * 1e6).toString(36); }
@@ -770,6 +822,52 @@
   }
 
   document.getElementById("exportBtn").addEventListener("click", exportCSV);
+  var trashOpen = false;
+  document.getElementById("trashBtn").addEventListener("click", function () {
+    trashOpen = !trashOpen; render();
+  });
+
+  function renderTrash() {
+    var dead = items.filter(function (it) { return it.deleted; });
+    var btn = document.getElementById("trashBtn");
+    var box = document.getElementById("trash");
+    btn.hidden = !dead.length;
+    btn.textContent = "Trash (" + dead.length + ")";
+    if (!dead.length) trashOpen = false;
+    box.hidden = !trashOpen || !dead.length;
+    if (box.hidden) return;
+    dead.sort(function (a, b) { return b.deleted - a.deleted; });
+    var list = document.getElementById("trashList");
+    list.innerHTML = "";
+    dead.forEach(function (it) {
+      var row = document.createElement("div");
+      row.className = "trash-row";
+      row.innerHTML = '<span class="t-name"></span><span class="t-meta"></span>' +
+        '<button class="t-restore" type="button">Restore</button>' +
+        '<button class="t-kill" type="button">Delete forever</button>';
+      row.querySelector(".t-name").textContent = (it.icon || "\u2022") + " " + it.name;
+      row.querySelector(".t-meta").textContent = it.log.length + " logs \u00b7 deleted " + fmtFull(it.deleted);
+      row.querySelector(".t-restore").addEventListener("click", function () {
+        it.deleted = null; save(); render();
+        toast(it.name + " restored");
+      });
+      var kill = row.querySelector(".t-kill");
+      kill.addEventListener("click", function () {
+        if (!kill.classList.contains("armed")) {
+          kill.classList.add("armed");
+          kill.textContent = "Click again to erase";
+          setTimeout(function () {
+            kill.classList.remove("armed");
+            kill.textContent = "Delete forever";
+          }, 3000);
+          return;
+        }
+        items = items.filter(function (x) { return x.id !== it.id; });
+        save(); render();
+      });
+      list.appendChild(row);
+    });
+  }
   document.getElementById("importBtn").addEventListener("click", function () {
     document.getElementById("importFile").click();
   });
@@ -809,6 +907,7 @@
       if (!o.log) o.log = o.last ? [{ id: uid(), ts: o.last, note: o.notes || "" }] : [];
       if (o.dueOn === undefined) o.dueOn = null;
       if (o.cat === undefined) o.cat = null;
+      if (o.deleted === undefined) o.deleted = null;
       return o;
     });
   }
@@ -895,6 +994,7 @@
       si.name = li.name || si.name;
       si.icon = li.icon || si.icon;
       si.cat = li.cat || si.cat;
+      if (li.deleted != null) si.deleted = li.deleted;
       if (li.every != null) si.every = li.every;
       if (li.dueOn != null) si.dueOn = li.dueOn;
       (li.log || []).forEach(function (e) {
@@ -957,6 +1057,7 @@
     }).then(function () {
       var list = [];
       items.forEach(function (it) {
+        if (it.deleted) return;
         var at = nextDue(it);
         if (at && at > Date.now()) {
           var last = it.log.length ? it.log[0].ts : null;
