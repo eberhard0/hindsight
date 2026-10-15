@@ -29,8 +29,8 @@ jobs:
           distribution: temurin
           java-version: 21
 
-      - uses: android-actions/setup-android@v3
-
+      # ubuntu-latest runners ship with the Android SDK preinstalled (ANDROID_HOME set,
+      # licenses accepted) — no setup-android action needed.
       - uses: gradle/actions/setup-gradle@v4
 
       - name: Web tests
