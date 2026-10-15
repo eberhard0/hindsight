@@ -33,7 +33,9 @@ android {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
-            if (System.getenv("KEYSTORE_FILE")) signingConfig signingConfigs.release
+            // No upload keystore (local/CI test builds): sign with the debug key so
+            // the APK is still installable; an unsigned APK can't be sideloaded at all.
+            signingConfig System.getenv("KEYSTORE_FILE") ? signingConfigs.release : signingConfigs.debug
         }
     }
 }
