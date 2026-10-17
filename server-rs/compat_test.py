@@ -14,7 +14,7 @@ import time
 import urllib.error
 import urllib.request
 
-REPO, BIN = sys.argv[1], sys.argv[2]
+REPO, BIN = os.path.abspath(sys.argv[1]), os.path.abspath(sys.argv[2])
 failures = []
 
 
