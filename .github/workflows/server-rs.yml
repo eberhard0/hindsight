@@ -1,0 +1,42 @@
+name: Rust server
+
+# Builds server-rs/, checks it answers exactly like server.py, and produces a
+# Raspberry Pi (64-bit) binary that runs on any glibc ≥ 2.28 (Debian 10+).
+
+on:
+  push:
+    paths: ['server-rs/**', 'server.py', '.github/workflows/server-rs.yml']
+  pull_request:
+    paths: ['server-rs/**', 'server.py', '.github/workflows/server-rs.yml']
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-unknown-linux-gnu
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: server-rs
+
+      - name: Build (x86_64, for the test)
+        working-directory: server-rs
+        run: cargo build --release --locked || cargo build --release
+
+      - name: Compare with server.py
+        run: python3 server-rs/compat_test.py . server-rs/target/release/hindsight-server
+
+      - name: Build for Raspberry Pi (aarch64)
+        working-directory: server-rs
+        run: |
+          pip install ziglang cargo-zigbuild
+          cargo zigbuild --release --target aarch64-unknown-linux-gnu.2.28
+          ls -l target/aarch64-unknown-linux-gnu/release/hindsight-server
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hindsight-server-aarch64
+          path: server-rs/target/aarch64-unknown-linux-gnu/release/hindsight-server
