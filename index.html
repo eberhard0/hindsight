@@ -815,10 +815,36 @@
         lines.push([q(it.cat || ""), q(it.name), q(stamp), q(e.note || "")].join(","));
       });
     });
+    var name = "hindsight-export-" + isoDate(Date.now()) + ".csv";
+    var csv = lines.join("\n");
+    var P = window.Capacitor && window.Capacitor.Plugins;
+    // Inside the Android app a blob <a download> is silently ignored by the WebView,
+    // so write a real file and hand it to the share sheet instead.
+    if (isNative && P && P.Filesystem) return exportNative(P, name, csv);
     var a = document.createElement("a");
-    a.href = URL.createObjectURL(new Blob([lines.join("\n")], { type: "text/csv" }));
-    a.download = "hindsight-export-" + isoDate(Date.now()) + ".csv";
+    a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+    a.download = name;
     a.click();
+  }
+
+  function exportNative(P, name, csv) {
+    var FS = P.Filesystem;
+    var write = function (directory) {
+      return FS.writeFile({ path: name, data: csv, directory: directory, encoding: "utf8", recursive: true });
+    };
+    // Documents is visible in the Files app; fall back to app cache (share-only)
+    // if the phone refuses, e.g. a same-named file left by an earlier install.
+    return write("DOCUMENTS")
+      .then(function (r) { toast("Saved to Documents/" + name); return r; })
+      .catch(function () { return write("CACHE"); })
+      .then(function (r) {
+        if (!P.Share) return;
+        return P.Share.share({ title: name, files: [r.uri], dialogTitle: "Export CSV" });
+      })
+      .catch(function (e) {
+        var msg = String((e && e.message) || e || "");
+        if (!/cancel/i.test(msg)) toast("Export failed: " + (msg || "unknown error"));
+      });
   }
 
   document.getElementById("exportBtn").addEventListener("click", exportCSV);

@@ -8,7 +8,7 @@ const check = (l, c, x = "") => { console.log((c ? "  PASS  " : "  FAIL  ") + l 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function boot(items, { native = true, server = "" } = {}) {
-  const calls = { perm: 0, scheduled: [], cancelled: [], fetches: [] };
+  const calls = { perm: 0, scheduled: [], cancelled: [], fetches: [], writes: [], shares: [] };
   const dom = new JSDOM(html, { runScripts: "dangerously", url: "https://localhost/", pretendToBeVisual: true, beforeParse(w) {
     w.localStorage.setItem(KEY, JSON.stringify(items));
     w.localStorage.setItem("since.synced.v1", "1");
@@ -21,6 +21,10 @@ function boot(items, { native = true, server = "" } = {}) {
       w.Capacitor = {
         isNativePlatform: () => true,
         Plugins: {
+          Filesystem: {
+            writeFile: (o) => { calls.writes.push(o); return Promise.resolve({ uri: "file:///docs/" + o.path }); },
+          },
+          Share: { share: (o) => { calls.shares.push(o); return Promise.resolve({}); } },
           LocalNotifications: {
             requestPermissions: () => { calls.perm++; return Promise.resolve({ display: "granted" }); },
             getPending: () => Promise.resolve({ notifications: [{ id: 42 }] }),
@@ -108,6 +112,17 @@ const items = [
   check("new schedule call after logging", calls.scheduled.length > before);
   check("Gas now scheduled too (no longer overdue)",
     newLast && newLast.notifications.some((n) => /Gas/.test(n.title)), newLast && newLast.notifications.length);
+
+  console.log("--- C2. CSV export in the app writes a file and opens the share sheet ---");
+  ({ dom, calls } = boot(items));
+  await sleep(100);
+  dom.window.document.getElementById("exportBtn").click();
+  await sleep(100);
+  const w = calls.writes[0];
+  check("file written to Documents", w && w.directory === "DOCUMENTS" && /^hindsight-export-.*\.csv$/.test(w.path),
+    JSON.stringify(w && { dir: w.directory, path: w.path }));
+  check("CSV has the header and rows", w && w.data.startsWith("Category,Event,Occurrence,Note\n") && w.data.split("\n").length > 2);
+  check("share sheet opened with that file", calls.shares.length === 1 && calls.shares[0].files[0] === "file:///docs/" + (w && w.path));
 
   console.log("--- D. Plain web stays unchanged ---");
   ({ dom, calls } = boot(items, { native: false }));
