@@ -60,9 +60,9 @@ def call(base, method, path, body=None, headers=None, raw=None):
         req.add_header("Content-Type", "application/json")
     try:
         with urllib.request.urlopen(req) as r:
-            return r.status, dict(r.headers), r.read()
+            return r.status, {k.lower(): v for k, v in r.headers.items()}, r.read()
     except urllib.error.HTTPError as e:
-        return e.code, dict(e.headers), e.read()
+        return e.code, {k.lower(): v for k, v in e.headers.items()}, e.read()
 
 
 def check(name, cond, detail=""):
@@ -121,14 +121,15 @@ try:
 
     hdrs = ("Access-Control-Allow-Origin", "Access-Control-Allow-Methods", "Access-Control-Allow-Headers",
             "Access-Control-Max-Age", "Vary")
-    pick = lambda r: (r[0], {h.lower(): v for h, v in r[1].items() if h in hdrs})
+    # HTTP header names are case-insensitive; hyper sends them lowercase.
+    pick = lambda r: (r[0], {h: v for h, v in r[1].items() if h in [x.lower() for x in hdrs]})
     for origin in ("https://localhost", "capacitor://localhost", "https://evil.example", None):
         h = {"Origin": origin} if origin else {}
         same("OPTIONS preflight, origin=%s" % origin, pick(call(pyu, "OPTIONS", "/api/items", headers=h)),
              pick(call(rsu, "OPTIONS", "/api/items", headers=h)))
         same("GET CORS, origin=%s" % origin, pick(call(pyu, "GET", "/api/items", headers=h)),
              pick(call(rsu, "GET", "/api/items", headers=h)))
-    cache = lambda r: r[1].get("Cache-Control")
+    cache = lambda r: r[1].get("cache-control")
     same("API is no-store", cache(call(pyu, "GET", "/api/items")), cache(call(rsu, "GET", "/api/items")))
     same("page is no-cache", cache(call(pyu, "GET", "/")), cache(call(rsu, "GET", "/")))
 finally:
